@@ -1,7 +1,6 @@
 import pprint
 
 from gremlin_python.statics import long
-from invana.client import GraphClient
 import logging
 from datetime import datetime
 import copy
@@ -60,7 +59,8 @@ class TwitterGraphBuilder:
 
 
     """
-    graph_client = GraphClient("ws://127.0.0.1:8182/gremlin")
+    def __init__(self, graph_client):
+        self.graph_client = graph_client
 
     def convert_to_date(self, date_time_str):
         return datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
@@ -89,6 +89,7 @@ class TwitterGraphBuilder:
                 else:
                     properties_cleaned[k] = v
 
+        properties_cleaned['entry_created_at'] = datetime.now()
         return properties_cleaned
 
     def extract_entities(self, tweet):
