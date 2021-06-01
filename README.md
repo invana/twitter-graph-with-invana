@@ -1,4 +1,6 @@
-# Twitter usecase PlayGround
+# Invana Twitter 
+
+Twitter integrations with Invana Engine. 
 
 ## Requirements
 - python 3.7 (any 3x should work)
