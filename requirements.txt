@@ -1,2 +1,2 @@
 tweepy
-git+https://github.com/invanalabs/invana-python@develop
+invana-engine==0.0.11

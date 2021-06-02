@@ -48,7 +48,7 @@ class DataExtractor:
         }
 
 
-class TwitterGraphBuilder:
+class InvanaTwitterGraphBuilder:
     """
 
     Extract user  ["id", "name", "screen_name", "location",
@@ -59,6 +59,7 @@ class TwitterGraphBuilder:
 
 
     """
+
     def __init__(self, graph_client):
         self.graph_client = graph_client
 
@@ -86,6 +87,8 @@ class TwitterGraphBuilder:
                 if k in ["created_at", "updated_at"]:
                     pass
                     # properties_cleaned[k] = self.convert_to_date(v)
+                elif type(v) is list:
+                    pass
                 else:
                     properties_cleaned[k] = v
 
@@ -114,42 +117,39 @@ class TwitterGraphBuilder:
             print("======tweet_obj", tweet_obj)
             print("read one user_data", user_data)
 
-            user_obj = self.graph_client.vertex.read_one(
+            print("-----creating TwitterProfile", self.validate_properties_data(user_data))
+            user_obj = self.graph_client.vertex.get_or_create(
                 label="TwitterProfile",
-                query={"_id": self.validate_properties_data(user_data)["_id"]}
+                properties=self.validate_properties_data(user_data)
             )
-            if user_obj is None:
-                print("-----creating TwitterProfile", self.validate_properties_data(user_data))
-                user_obj = self.graph_client.vertex.create(
-                    label="TwitterProfile",
-                    properties=self.validate_properties_data(user_data)
-                )
 
-
-            print("======user_obj", user_obj)
+            print("======user_obj", user_obj.id)
+            print("======tweet_obj", tweet_obj.id)
             tweet_user_relationship = self.graph_client.edge.create(
                 label="has_tweeted",
                 # properties={"distance_in_kms": 384400},
-                outv={"query": {"id": user_obj['id']}},
-                inv={"query": {"id": tweet_obj['id']}}
+                outv=user_obj.id,
+                inv=tweet_obj.id
             )
+            print("tweet_user_relationship", tweet_user_relationship)
 
             for hashtag in hashtags_data:
                 hashtag_obj = self.graph_client.vertex.get_or_create(
                     label="HashTag",
-                    query={"name": hashtag}
+                    properties={"name": hashtag}
                 )
+                print("hashtag_obj", hashtag_obj)
                 tweet_hashtag_relationship = self.graph_client.edge.create(
                     label="has_hashtag",
                     # properties={"distance_in_kms": 384400},
-                    outv={"query": {"id": tweet_obj['id']}},
-                    inv={"query": {"id": hashtag_obj['id']}}
+                    outv=tweet_obj.id,
+                    inv=hashtag_obj.id
                 )
                 user_hashtag_relationship = self.graph_client.edge.create(
                     label="writes_about",
                     # properties={"distance_in_kms": 384400},
-                    outv={"query": {"id": user_obj['id']}},
-                    inv={"query": {"id": hashtag_obj['id']}}
+                    outv=user_obj.id,
+                    inv=hashtag_obj.id
                 )
 
     def add_event_to_event_store(self, tweet):
