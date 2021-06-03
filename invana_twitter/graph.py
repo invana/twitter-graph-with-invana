@@ -1,74 +1,27 @@
-import pprint
-
+from invana_twitter.extractor import TweetDataExtractor
 from gremlin_python.statics import long
-import logging
 from datetime import datetime
 import copy
 
-logging.basicConfig(filename='graph.log', filemode="w", level=logging.DEBUG)
 
+class InvanaGraphBuilderBase:
+    extractor = None
 
-class DataExtractor:
-
-    def __init__(self, tweet):
-        pprint.pprint(tweet)
-        self.tweet = tweet
-
-    def get_tweet_id(self):
-        return self.tweet.id
-
-    def get_is_retweet(self):
-        return self.tweet.retweeted
-
-    def get_user_info(self):
-        return self.tweet._json['user']
-
-    def get_url_entities(self):
-        return [url['expanded_url'] for url in self.tweet._json['entities']['urls']]
-
-    def get_hashtag_entities(self):
-        return [hashtag['text'] for hashtag in self.tweet._json['entities']['hashtags']]
-
-    def get_user_mention_entities(self):
-        return [
-            {"name": mention['name'], "id": int(mention['id'])}
-            for mention in
-            self.tweet._json['entities']['user_mentions']
-        ]
-
-    def get_tweet_extended_entities(self):
-        return self.tweet['extended_entities']
-
-    def get_tweet_info(self):
-        return {
-            "id": long(self.get_tweet_id()),
-            "text": self.tweet.text,
-            "is_retweet": self.get_is_retweet(),
-            "created_at": self.tweet.created_at
-        }
-
-
-class InvanaTwitterGraphBuilder:
-    """
-
-    Extract user  ["id", "name", "screen_name", "location",
-    "description", "verified", "profile_image_url_https"]
-    Extract tweet text
-    Extract tweet hashtags
-
-
-
-    """
-
-    def __init__(self, graph_client):
+    def __init__(self, graph_client, debug=True, entity_labels=None, relationship_labels=None):
         self.graph_client = graph_client
+        self.debug = debug
 
-    def convert_to_date(self, date_time_str):
+        self.entity_labels = entity_labels
+        self.relationship_labels = relationship_labels
+
+    @staticmethod
+    def convert_str_to_date(date_time_str):
         return datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
 
-    def validate_properties_data(self, properties):
+    @staticmethod
+    def clean_properties_data(properties):
         """
-        since janusgraph does allow id to be set by user, we need to remove it
+        since JanusGraph doesn't allow id to be set by user, we need to remove it
         or convert into specific format https://github.com/JanusGraph/janusgraph/issues/45
 
         :param properties:
@@ -86,7 +39,7 @@ class InvanaTwitterGraphBuilder:
             if v is not None:
                 if k in ["created_at", "updated_at"]:
                     pass
-                    # properties_cleaned[k] = self.convert_to_date(v)
+                    # properties_cleaned[k] = self.convert_str_to_date(v)
                 elif type(v) is list:
                     pass
                 else:
@@ -95,67 +48,93 @@ class InvanaTwitterGraphBuilder:
         properties_cleaned['entry_created_at'] = datetime.now()
         return properties_cleaned
 
-    def extract_entities(self, tweet):
-        extractor = DataExtractor(tweet)
-        user_data = extractor.get_user_info()
-        tweet_data = extractor.get_tweet_info()
-        hashtags_data = extractor.get_hashtag_entities()
-        mentions_data = extractor.get_user_mention_entities()
-        urls_data = extractor.get_url_entities()
-        is_retweet = extractor.get_is_retweet()
-        print("user", user_data)
-        print("tweet", tweet_data)
-        print("hashtags", hashtags_data)
-        print("mentions", mentions_data)
+
+class InvanaTwitterGraphBuilder(InvanaGraphBuilderBase):
+    """
+
+    Extract user  ["id", "name", "screen_name", "location",
+    "description", "verified", "profile_image_url_https"]
+    Extract tweet text
+    Extract tweet hashtags
+
+
+
+
+    """
+
+    def create_tweet_entity(self):
+        if self.debug:
+            print("Creating {} entry with text: {}".format(
+                self.entity_labels.tweet_label,
+                self.extractor.get_tweet_info().get("text")))
+        return self.graph_client.vertex.get_or_create(
+            label=self.entity_labels.tweet_label,
+            properties=self.clean_properties_data(self.extractor.get_tweet_info()))
+
+    def create_user_entity(self):
+        if self.debug:
+            print("Creating {} entry with screen_name: {}".format(
+                self.entity_labels.user_profile_label,
+                self.extractor.get_user_info().get("screen_name")))
+        return self.graph_client.vertex.create(
+            label=self.entity_labels.user_profile_label,
+            properties=self.clean_properties_data(self.extractor.get_user_info()))
+
+    def create_hashtag_entities_and_relationships(self, tweet_instance=None, user_instance=None):
+        for hashtag in self.extractor.get_hashtag_entities():
+            if self.debug:
+                print("Creating {} entry with name: {}".format(self.entity_labels.hashtag_label, hashtag))
+            hashtag_instance = self.graph_client.vertex.get_or_create(
+                label=self.entity_labels.hashtag_label,
+                properties={"name": hashtag}
+            )
+            if tweet_instance:
+                self.create_hashtag_tweet_relationship(tweet_instance=tweet_instance, hashtag_instance=hashtag_instance)
+
+            if user_instance:
+                self.create_hashtag_user_relationship(user_instance=user_instance, hashtag_instance=hashtag_instance)
+
+    def create_hashtag_tweet_relationship(self, tweet_instance=None, hashtag_instance=None):
+        return self.graph_client.edge.create(
+            label=self.relationship_labels.has_hashtag_label,
+            properties=None,
+            outv=tweet_instance.id,
+            inv=hashtag_instance.id
+        )
+
+    def create_hashtag_user_relationship(self, user_instance=None, hashtag_instance=None):
+        return self.graph_client.edge.create(
+            label=self.relationship_labels.tweeted_about_label,
+            properties=None,
+            outv=user_instance.id,
+            inv=hashtag_instance.id
+        )
+
+    def create_tweet_user_relationship(self, user_instance=None, tweet_instance=None):
+        return self.graph_client.edge.create(
+            label=self.relationship_labels.has_tweeted_label,
+            properties=None,
+            outv=user_instance.id,
+            inv=tweet_instance.id
+        )
+
+    def process(self, tweet):
+        self.extractor = TweetDataExtractor(tweet)
+        mentions_data = self.extractor.get_user_mention_entities()
+        urls_data = self.extractor.get_url_entities()
+        is_retweet = self.extractor.get_is_retweet()
         print("urls", urls_data)
         print("is_retweet", is_retweet)
+        print("mentions_data", mentions_data)
         if is_retweet is False:
-            tweet_obj = self.graph_client.vertex.create(
-                label="Tweet",
-                properties=self.validate_properties_data(tweet_data)
-            )
-            print("======tweet_obj", tweet_obj)
-            print("read one user_data", user_data)
+            tweet_instance = self.create_tweet_entity()
+            user_instance = self.create_user_entity()
 
-            print("-----creating TwitterProfile", self.validate_properties_data(user_data))
-            user_obj = self.graph_client.vertex.get_or_create(
-                label="TwitterProfile",
-                properties=self.validate_properties_data(user_data)
-            )
+            self.create_tweet_user_relationship(
+                user_instance=user_instance,
+                tweet_instance=tweet_instance)
 
-            print("======user_obj", user_obj.id)
-            print("======tweet_obj", tweet_obj.id)
-            tweet_user_relationship = self.graph_client.edge.create(
-                label="has_tweeted",
-                # properties={"distance_in_kms": 384400},
-                outv=user_obj.id,
-                inv=tweet_obj.id
-            )
-            print("tweet_user_relationship", tweet_user_relationship)
+            self.create_hashtag_entities_and_relationships(tweet_instance=tweet_instance, user_instance=user_instance)
 
-            for hashtag in hashtags_data:
-                hashtag_obj = self.graph_client.vertex.get_or_create(
-                    label="HashTag",
-                    properties={"name": hashtag}
-                )
-                print("hashtag_obj", hashtag_obj)
-                tweet_hashtag_relationship = self.graph_client.edge.create(
-                    label="has_hashtag",
-                    # properties={"distance_in_kms": 384400},
-                    outv=tweet_obj.id,
-                    inv=hashtag_obj.id
-                )
-                user_hashtag_relationship = self.graph_client.edge.create(
-                    label="writes_about",
-                    # properties={"distance_in_kms": 384400},
-                    outv=user_obj.id,
-                    inv=hashtag_obj.id
-                )
-
-    def add_event_to_event_store(self, tweet):
-        pass
-
-    def process(self, event):
-        self.add_event_to_event_store(event)
-        self.extract_entities(event)
-        print("==========================")
+        if self.debug:
+            print("=============================================")

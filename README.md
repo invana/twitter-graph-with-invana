@@ -1,12 +1,24 @@
 # Invana Twitter 
 
-Twitter integrations with Invana Engine. 
+Twitter integrations for Invana Engine.   
 
-## Requirements
-- python 3.7 (any 3x should work)
-- invana graph explorer - start explorer server
-- janusgraph - start janusgraph server 
-- install requirements.txt
+## How to use
+
+### 1. Read twitter data
+Read twitter stream using [tweepy](https://www.tweepy.org/) 
+```python
+
+
+
+```
+
+
+### 2. Model your data
+
+### 3. Import data into graph
+
+Example code is in the `examples/`
+
 
 ```shell script
 
@@ -15,22 +27,7 @@ export CONSUMER_SECRET="xxxx"
 export ACCESS_TOKEN="xxxx"
 export ACCESS_TOKEN_SECRET="xxxx"
 
-python3 twitter_stream.py
+python3 examples/twitter_tag_stream.py
 ```
 
-## Gremlin Query
-
-```shell 
-
-
-// get last 10 vertices of TwitterProfile label
-node= g.V().hasLabel("TwitterProfile").order().by("entry_created_at",decr).limit(10).toList(); 
-
-
-
-node= g.V().order().by("entry_created_at",decr).limit(10).toList(); 
-edges = g.V().order().by("entry_created_at",decr).limit(10).outE().dedup().toList(); 
-other_nodes = g.V().order().by("entry_created_at",decr).limit(10).outE().otherV().dedup().toList();
-[other_nodes,edges,node]
-```
-
+ 
