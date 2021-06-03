@@ -1,5 +1,7 @@
 from gremlin_python.statics import long
 
+from invana_twitter.utils import convert_dict_to_vertex
+
 
 class TweetDataExtractor:
     """
@@ -39,10 +41,8 @@ class TweetDataExtractor:
         return [hashtag['text'] for hashtag in self.get_tweet_json()['entities']['hashtags']]
 
     def get_user_mention_entities(self):
-        return [
-            {"name": mention['name'], "id": int(mention['id'])}
-            for mention in self.get_tweet_json()['entities']['user_mentions']
-        ]
+        print("self.get_tweet_json()['entities']['user_mentions']", self.get_tweet_json()['entities']['user_mentions'])
+        return self.get_tweet_json()['entities']['user_mentions']
 
     def get_tweet_extended_entities(self):
         return self.tweet['extended_entities']

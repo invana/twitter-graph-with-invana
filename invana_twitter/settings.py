@@ -11,7 +11,7 @@ class DefaultEntityLabelNames:
 
 
 class DefaultRelationShipLabelNames:
-    # has_mentioned_user_in_tweet_label = "has_mentioned_user"  # from user who wrote tweet to the other user
+    has_mentioned_user_in_tweet_label = "has_mentioned_user"  # from user who wrote tweet to the other user
     # has_mentioned_user_in_tweet_label = "has_mentioned_user"  # from user who wrote tweet to the other user
     has_tweeted_label = "has_tweeted"
     has_hashtag_label = "has_hashtag"

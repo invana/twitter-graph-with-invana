@@ -3,6 +3,8 @@ from gremlin_python.statics import long
 from datetime import datetime
 import copy
 
+from invana_twitter.utils import convert_dict_to_vertex
+
 
 class InvanaGraphBuilderBase:
     extractor = None
@@ -80,6 +82,26 @@ class InvanaTwitterGraphBuilder(InvanaGraphBuilderBase):
             label=self.entity_labels.user_profile_label,
             properties=self.clean_properties_data(self.extractor.get_user_info()))
 
+    def create_tweet_user_mention_entities_and_relationships(self, tweet_instance):
+
+        for user_mention_data in self.extractor.get_user_mention_entities():
+            if self.debug:
+                mentioned_user = convert_dict_to_vertex(user_mention_data, self.entity_labels.user_profile_label, "id")
+                mentioned_user_instance = self.graph_client.vertex.get_or_create(
+                    label=mentioned_user['label'],
+                    properties=mentioned_user['properties']
+                )
+                _ = self.create_tweet_user_mention_relationship(tweet_instance=tweet_instance,
+                                                                user_mentioned_instance=mentioned_user_instance)
+
+    def create_tweet_user_mention_relationship(self, user_mentioned_instance=None, tweet_instance=None):
+        return self.graph_client.edge.create(
+            label=self.relationship_labels.has_mentioned_user_in_tweet_label,
+            properties=None,
+            outv=tweet_instance.id,
+            inv=user_mentioned_instance.id
+        )
+
     def create_hashtag_entities_and_relationships(self, tweet_instance=None, user_instance=None):
         for hashtag in self.extractor.get_hashtag_entities():
             if self.debug:
@@ -120,21 +142,23 @@ class InvanaTwitterGraphBuilder(InvanaGraphBuilderBase):
 
     def process(self, tweet):
         self.extractor = TweetDataExtractor(tweet)
-        mentions_data = self.extractor.get_user_mention_entities()
         urls_data = self.extractor.get_url_entities()
         is_retweet = self.extractor.get_is_retweet()
         print("urls", urls_data)
         print("is_retweet", is_retweet)
-        print("mentions_data", mentions_data)
+        # print("mentions_data", mentions_data)
         if is_retweet is False:
             tweet_instance = self.create_tweet_entity()
-            user_instance = self.create_user_entity()
+            tweet_author_user_instance = self.create_user_entity()
 
             self.create_tweet_user_relationship(
-                user_instance=user_instance,
+                user_instance=tweet_author_user_instance,
                 tweet_instance=tweet_instance)
 
-            self.create_hashtag_entities_and_relationships(tweet_instance=tweet_instance, user_instance=user_instance)
+            self.create_hashtag_entities_and_relationships(tweet_instance=tweet_instance,
+                                                           user_instance=tweet_author_user_instance)
+
+            self.create_tweet_user_mention_entities_and_relationships(tweet_instance)
 
         if self.debug:
             print("=============================================")
