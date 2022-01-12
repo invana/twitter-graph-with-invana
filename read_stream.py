@@ -12,7 +12,7 @@ class CustomStreamListener(tweepy.Stream):
 
     def on_status(self, status):
         graph_builder = TwitterGraphBuilder()
-        graph_builder.process(status)
+        graph_builder.store_tweet(status)
         # print(status)
         # print(status.__dict__.keys())
 
