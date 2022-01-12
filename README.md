@@ -1,36 +1,26 @@
-# Invana Twitter 
+# Invana Twitter
 
-Twitter integrations with Invana Engine. 
+Reference implementation to build twitter graph with Invana.
 
-## Requirements
-- python 3.7 (any 3x should work)
-- invana graph explorer - start explorer server
-- janusgraph - start janusgraph server 
-- install requirements.txt
+## Usage
 
-```shell script
+```bash
+pip install -r requirements.txt
 
+# set twitter credentials 
 export CONSUMER_KEY="xxxx"
 export CONSUMER_SECRET="xxxx"
 export ACCESS_TOKEN="xxxx"
 export ACCESS_TOKEN_SECRET="xxxx"
 
-python3 twitter_stream.py
+# read stream
+python3 read_stream.py
 ```
 
-## Gremlin Query
+## Start a gremlin support graph db
 
-```shell 
+Start an instance of [JanusGraph](https://github.com/JanusGraph/janusgraph-docker/tree/master/0.6)
 
+## License
 
-// get last 10 vertices of TwitterProfile label
-node= g.V().hasLabel("TwitterProfile").order().by("entry_created_at",decr).limit(10).toList(); 
-
-
-
-node= g.V().order().by("entry_created_at",decr).limit(10).toList(); 
-edges = g.V().order().by("entry_created_at",decr).limit(10).outE().dedup().toList(); 
-other_nodes = g.V().order().by("entry_created_at",decr).limit(10).outE().otherV().dedup().toList();
-[other_nodes,edges,node]
-```
-
+[MIT License](LICENSE)

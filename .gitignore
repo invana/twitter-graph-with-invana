@@ -1,1 +1,4 @@
-graph.log
+*.log
+.idea/
+*.json
+__pycache__

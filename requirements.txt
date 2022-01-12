@@ -1,2 +1,2 @@
 tweepy
-git+https://github.com/invanalabs/invana-python@develop
+git+https://github.com/invanalabs/invana-py@release/v0
