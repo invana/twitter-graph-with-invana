@@ -4,48 +4,11 @@ from gremlin_python.statics import long
 import logging
 from datetime import datetime
 import copy
+from .models import UserProfile, Tweet, HashTag, UsedHashTag, HasHashTag
+
+from data_extractor import TwitterDataExtractor
 
 logging.basicConfig(filename='graph.log', filemode="w", level=logging.DEBUG)
-
-
-class DataExtractor:
-
-    def __init__(self, tweet):
-        pprint.pprint(tweet)
-        self.tweet = tweet
-
-    def get_tweet_id(self):
-        return self.tweet.id
-
-    def get_is_retweet(self):
-        return self.tweet.retweeted
-
-    def get_user_info(self):
-        return self.tweet._json['user']
-
-    def get_url_entities(self):
-        return [url['expanded_url'] for url in self.tweet._json['entities']['urls']]
-
-    def get_hashtag_entities(self):
-        return [hashtag['text'] for hashtag in self.tweet._json['entities']['hashtags']]
-
-    def get_user_mention_entities(self):
-        return [
-            {"name": mention['name'], "id": int(mention['id'])}
-            for mention in
-            self.tweet._json['entities']['user_mentions']
-        ]
-
-    def get_tweet_extended_entities(self):
-        return self.tweet['extended_entities']
-
-    def get_tweet_info(self):
-        return {
-            "id": long(self.get_tweet_id()),
-            "text": self.tweet.text,
-            "is_retweet": self.get_is_retweet(),
-            "created_at": self.tweet.created_at
-        }
 
 
 class TwitterGraphBuilder:
@@ -59,72 +22,62 @@ class TwitterGraphBuilder:
 
 
     """
-    def __init__(self, graph_client):
-        self.graph_client = graph_client
 
-    def convert_to_date(self, date_time_str):
+    @staticmethod
+    def convert_to_date(date_time_str):
         return datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
 
-    def validate_properties_data(self, properties):
+    def validate_properties_data(self, properties, model):
         """
-        since janusgraph does allow id to be set by user, we need to remove it
-        or convert into specific format https://github.com/JanusGraph/janusgraph/issues/45
+        since JanusGraph does not allow id to be set by user, we need to remove it
+        or convert into other key. Refer https://github.com/JanusGraph/janusgraph/issues/45
 
         :param properties:
         :return:
         """
-
+        model_property_keys = list(model.properties.keys())
         properties = copy.copy(properties)
         if "id" in properties:
-            properties["_id"] = long(properties['id'])
+            properties["twitter_id"] = long(properties['id'])
             del properties['id']
 
         properties_cleaned = {}
         for k, v in properties.items():
-            # delete any properties with value None
-            if v is not None:
+            # delete any properties that are not in model.properties
+            if k in model_property_keys:
                 if k in ["created_at", "updated_at"]:
-                    pass
-                    # properties_cleaned[k] = self.convert_to_date(v)
+                    properties_cleaned[k] = self.convert_to_date(v)
                 else:
                     properties_cleaned[k] = v
-
-        properties_cleaned['entry_created_at'] = datetime.now()
         return properties_cleaned
 
     def extract_entities(self, tweet):
-        extractor = DataExtractor(tweet)
-        user_data = extractor.get_user_info()
-        tweet_data = extractor.get_tweet_info()
-        hashtags_data = extractor.get_hashtag_entities()
-        mentions_data = extractor.get_user_mention_entities()
-        urls_data = extractor.get_url_entities()
+        extractor = TwitterDataExtractor(tweet)
+
         is_retweet = extractor.get_is_retweet()
-        print("user", user_data)
-        print("tweet", tweet_data)
-        print("hashtags", hashtags_data)
-        print("mentions", mentions_data)
-        print("urls", urls_data)
+        # print("tweet", tweet_data)
+        # print("hashtags", hashtags_data)
+        # print("mentions", mentions_data)
+        # print("urls", urls_data)
         print("is_retweet", is_retweet)
         if is_retweet is False:
-            tweet_obj = self.graph_client.vertex.create(
-                label="Tweet",
-                properties=self.validate_properties_data(tweet_data)
-            )
+
+            # create Tweet
+            tweet_data = extractor.get_tweet_info()
+            serialised_tweet_data = self.validate_properties_data(tweet_data, Tweet)
+            tweet_obj = Tweet.objects.create(**serialised_tweet_data)
             print("======tweet_obj", tweet_obj)
-            print("read one user_data", user_data)
 
-            user_obj = self.graph_client.vertex.read_one(
-                label="TwitterProfile",
-                query={"_id": self.validate_properties_data(user_data)["_id"]}
-            )
-            if user_obj is None:
-                print("-----creating TwitterProfile", self.validate_properties_data(user_data))
-                user_obj = self.graph_client.vertex.create(
-                    label="TwitterProfile",
-                    properties=self.validate_properties_data(user_data)
-                )
+            # create UserProfile
+            user_data = extractor.get_user_info()
+            serialised_user_data = self.validate_properties_data(user_data, UserProfile)
+            user_obj = UserProfile.objects.search(has__twitter_id=serialised_user_data["twitter_id"]).to_list()
+            if user_obj.__len__() > 0:
+                user_obj = UserProfile.objects.create(**serialised_user_data)
 
+            hashtags_data = extractor.get_hashtag_entities()
+            mentions_data = extractor.get_user_mention_entities()
+            urls_data = extractor.get_url_entities()
 
             print("======user_obj", user_obj)
             tweet_user_relationship = self.graph_client.edge.create(

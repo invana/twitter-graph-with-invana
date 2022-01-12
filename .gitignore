@@ -1,1 +1,3 @@
-graph.log
+*.log
+.idea/
+*.json
