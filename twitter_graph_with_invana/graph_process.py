@@ -1,12 +1,10 @@
-import pprint
-
 from gremlin_python.statics import long
 import logging
 from datetime import datetime
 import copy
 from .models import UserProfile, Tweet, HashTag, UsedHashTag, HasHashTag, HasTweeted
-
-from data_extractor import TwitterDataExtractor
+from .data_extractor import TwitterDataExtractor
+from dateutil.parser import parse
 
 logging.basicConfig(filename='graph.log', filemode="w", level=logging.DEBUG)
 
@@ -25,7 +23,10 @@ class TwitterGraphBuilder:
 
     @staticmethod
     def convert_to_date(date_time_str):
-        return datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
+        if isinstance(date_time_str, str):
+            return parse(date_time_str)
+            # return datetime.strptime(date_time_str, '%Y-%m-%d %H:%M:%S.%f')
+        return date_time_str
 
     def validate_properties_data(self, properties, model):
         """
@@ -37,10 +38,6 @@ class TwitterGraphBuilder:
         """
         model_property_keys = list(model.properties.keys())
         properties = copy.copy(properties)
-        if "id" in properties:
-            properties["twitter_id"] = long(properties['id'])
-            del properties['id']
-
         properties_cleaned = {}
         for k, v in properties.items():
             # delete any properties that are not in model.properties
@@ -63,16 +60,18 @@ class TwitterGraphBuilder:
         # create UserProfile
         user_data = extractor.get_user_info()
         serialised_user_data = self.validate_properties_data(user_data, UserProfile)
-        user_obj = UserProfile.objects.search(has__twitter_id=serialised_user_data["twitter_id"]).to_list()
-        if user_obj.__len__() > 0:
+        user_obj = UserProfile.objects.search(has__user_id=serialised_user_data["user_id"]).to_list()
+        if user_obj.__len__() == 0:
             user_obj = UserProfile.objects.create(**serialised_user_data)
+        else:
+            user_obj = user_obj[0]
         return user_obj
 
     @staticmethod
     def create_hash_tag(extractor):
         # create has tags
         hashtags_data = extractor.get_hashtag_entities()
-        hashtag_objects = [HashTag.objects.get_or_create(text=hashtag) for hashtag in hashtags_data]
+        hashtag_objects = [HashTag.objects.get_or_create(text=hashtag)[1] for hashtag in hashtags_data]
         return hashtag_objects
 
     def extract_entities(self, tweet):
@@ -94,7 +93,7 @@ class TwitterGraphBuilder:
 
             HasTweeted.objects.create(user_object.id, tweet_object.id)
             for hashtag_object in hashtag_objects:
-                HashTag.objects.create(tweet_object.id, hashtag_object.id)
+                HasHashTag.objects.create(tweet_object.id, hashtag_object.id)
                 UsedHashTag.objects.create(user_object.id, hashtag_object.id)
 
     def store_tweet(self, event):

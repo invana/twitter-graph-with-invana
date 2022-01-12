@@ -3,13 +3,13 @@ from invana_py.ogm.models import VertexModel, EdgeModel
 from invana_py.ogm.fields import StringProperty, IntegerProperty, DoubleProperty, DateTimeProperty, BooleanProperty
 from datetime import datetime
 
-graph = InvanaGraph("ws://localhost:8182/gremlin")
+graph = InvanaGraph("ws://localhost:8182/gremlin", call_from_event_loop=False)
 
 
 class UserProfile(VertexModel):
     graph = graph
     properties = {
-        "id_": DoubleProperty(),
+        "user_id": DoubleProperty(),
         "name": StringProperty(),
         "screen_name": StringProperty(),
         "location": StringProperty(allow_null=True),
@@ -33,10 +33,11 @@ class UserProfile(VertexModel):
 class Tweet(VertexModel):
     graph = graph
     properties = {
-        "id_str": DoubleProperty(),
+        "tweet_id": DoubleProperty(),
         "text": StringProperty(),
         "lang": StringProperty(),
         "timestamp_ms": StringProperty(),
+        "is_retweet": BooleanProperty(),
         "created_at": DateTimeProperty(),
         "entry_created_at": DateTimeProperty(default=lambda: datetime.now()),
     }

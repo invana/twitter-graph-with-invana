@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 tweepy = "*"
 invana-py = {ref = "release/v0", git = "https://github.com/invanalabs/invana-py"}
+python-dateutil = "*"
 
 [dev-packages]
 

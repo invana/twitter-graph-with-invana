@@ -1,6 +1,6 @@
 import tweepy
 import os
-from .graph_process import TwitterGraphBuilder
+from twitter_graph_with_invana.graph_process import TwitterGraphBuilder
 
 consumer_key = os.environ.get("CONSUMER_KEY")
 consumer_secret = os.environ.get("CONSUMER_SECRET")
@@ -13,8 +13,6 @@ class CustomStreamListener(tweepy.Stream):
     def on_status(self, status):
         graph_builder = TwitterGraphBuilder()
         graph_builder.store_tweet(status)
-        # print(status)
-        # print(status.__dict__.keys())
 
     def on_error(self, status_code):
         if status_code == 420:

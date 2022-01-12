@@ -17,7 +17,10 @@ class TwitterDataExtractor:
         return self.tweet.retweeted
 
     def get_user_info(self):
-        return self.tweet_json['user']
+        _ = self.tweet_json['user']
+        _['user_id'] = _["id"]
+        del _["id"]
+        return _
 
     def get_url_entities(self):
         return [url['expanded_url'] for url in self.tweet_json['entities']['urls']]
@@ -37,8 +40,10 @@ class TwitterDataExtractor:
 
     def get_tweet_info(self):
         return {
-            "id": long(self.get_tweet_id()),
+            "tweet_id": long(self.get_tweet_id()),
             "text": self.tweet.text,
+            "lang": self.tweet.lang,
+            "timestamp_ms": self.tweet.timestamp_ms,
             "is_retweet": self.get_is_retweet(),
             "created_at": self.tweet.created_at
         }
