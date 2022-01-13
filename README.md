@@ -19,7 +19,7 @@ python3 read_stream.py
 
 ## Start a gremlin support graph db
 
-Start an instance of [JanusGraph](https://github.com/JanusGraph/janusgraph-docker/tree/master/0.6)
+Start an instance of [JanusGraph](https://github.com/JanusGraph/janusgraph-docker)
 
 ## License
 
