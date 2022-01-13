@@ -17,9 +17,7 @@ export ACCESS_TOKEN_SECRET="xxxx"
 python3 read_stream.py
 ```
 
-## Start a gremlin support graph db
-
-Start an instance of [JanusGraph](https://github.com/JanusGraph/janusgraph-docker)
+**NOTE:** Start an instance of [JanusGraph](https://github.com/JanusGraph/janusgraph-docker) before you start `read_stream.py`
 
 ## License
 
