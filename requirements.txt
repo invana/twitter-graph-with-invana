@@ -1,2 +1,0 @@
-tweepy
-git+https://github.com/invanalabs/invana-py@release/v0
